@@ -49,3 +49,5 @@ if __name__ == "__main__":
     main()
 
 #python sender.py -f path/to/file.txt -a 10.0.7.141 -s 9000 -c 6696 -i ecd04286
+#ssh -i CS145ProjectKey.pem ubuntu@13.250.22.66
+#wget http://3.0.248.41:5000/get_data?student_id=ecd04286
