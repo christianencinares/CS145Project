@@ -25,11 +25,15 @@ def GetArgs():
 
 #Send the intent message to the receiver 
 def SendIntentMessage(socket,args):
-    message = ("ID{}".format(args.uniqueid)).encode()   #Encode the intent message IDWWWWWWWW 
-    socket.sendto(message, (args.address, args.receiverport))    #Send the intent message using receiver's IP and port
-    TID, server = socket.recvfrom(8)          #Receive the response from receiver
-    print("TID:",TID.decode())                          #Print the transcation ID from the receiver
-    return TID.decode()                                   
+    while True: 
+        message = ("ID{}".format(args.uniqueid)).encode()   #Encode the intent message IDWWWWWWWW 
+        socket.sendto(message, (args.address, args.receiverport))    #Send the intent message using receiver's IP and port
+        TID, server = socket.recvfrom(8)          #Receive the response from receiver
+        TID = TID.decode()                        #Decode the response
+        if TID == 'Existing':
+            print("ERROR: Transaction ID currently in use. Reattempting...")
+        print("TID:",TID)                          #Print the transcation ID from the receiver
+        return TID                                
 
 #Initialize the UDP socket
 def InitSocket(args):
@@ -62,16 +66,17 @@ def SendPayload(args,socket,TID,payload):
     payload_start = 0
     payload_end = 1
     payload_size = 1
-    exponential_lock = 0
-    fine_tune_lock = 0
+    adaptive_size_mode = 0
     Ave_RTT = 10
     incrementer = 0
+    multiplier = 1
     n = 0
-    while transmitted_payload != payload_length:
+    start_elapsed_time = time.time()
+    while (transmitted_payload != payload_length) or (elapsed_time > 130):
         data_packet = ("ID{}SN{:07d}TXN{:07d}LAST{}{}".format(args.uniqueid,int(sequence_number),int(TID),Z,payload[payload_start:payload_end])).encode()
         print("------------------------------------------------------")
         print("Attempting to send: ",data_packet)
-        print("SIZE: ",payload_size,"SN:",sequence_number,"EL:",exponential_lock,"FTL:",fine_tune_lock)
+        print("SIZE: ",payload_size,"SN:",sequence_number,"Adapative Size Mode:",adaptive_size_mode)
         start = time.time()
         socket.settimeout(Ave_RTT)
         try:
@@ -81,7 +86,8 @@ def SendPayload(args,socket,TID,payload):
             RTT = end - start
             sequence_number = sequence_number+1
             transmitted_payload = transmitted_payload + payload_size
-            print("SUCCESS:",receiver_ack,"RTT:",RTT,"Transmitted:",transmitted_payload,"/",payload_length)
+            elapsed_time = time.time() - start_elapsed_time
+            print("[SUCCESS] ACK:",receiver_ack,"RTT:",RTT,"Transmitted:",transmitted_payload,"/",payload_length,"Elapsed Time:",elapsed_time)
             print("------------------------------------------------------")
             if payload_size >  payload_length - payload_end: #Last packet, just send the rest of the payload.
                 payload_size = payload_length - payload_end
@@ -89,31 +95,31 @@ def SendPayload(args,socket,TID,payload):
                 payload_end = payload_length
                 Z = 1
             else:
-                if exponential_lock == 0:   #Exponential payload size increase
-                    payload_size = payload_size * 2
-                    payload_start = payload_end
-                    payload_end = payload_end + payload_size
-                elif fine_tune_lock == 0:   #Incremental payload size increase
+                if adaptive_size_mode == 0:   #Incrementing Multiplier Mode
+                    multiplier = multiplier + 1
+                    payload_size = payload_size * multiplier
+                elif adaptive_size_mode == 1: #Base Multiplier Mode
+                    payload_size = payload_size * 2    
+                elif adaptive_size_mode == 2: #Incremental Mode
                     incrementer = incrementer + 1
-                    payload_size = payload_size + incrementer
-                    payload_start = payload_end
-                    payload_end = payload_end + payload_size
-                else:                       #Optimal payload size attained
-                    payload_start = payload_end
-                    payload_end = payload_end + payload_size
+                    payload_size = payload_size + incrementer                   
+                #else Optimal payload size attained, no payload size change
+                
+                payload_start = payload_end
+                payload_end = payload_end + payload_size
         except:
-            if exponential_lock == 0:
-                #revert
-                payload_start = payload_end - payload_size
-                payload_size = payload_size//2 
-                payload_end = payload_start + payload_size
-                exponential_lock = 1
-            elif fine_tune_lock == 0:
-                payload_start = payload_end - payload_size
+            payload_start = payload_end - payload_size
+            if adaptive_size_mode == 0:   #Incrementing Multiplier Mode
+                payload_size = payload_size//multiplier
+                adaptive_size_mode = 1   
+            elif adaptive_size_mode == 1: #Base Multiplier Mode
+                payload_size = payload_size//2
+                adaptive_size_mode = 2 
+            elif adaptive_size_mode == 2: #Incremental Mode
                 payload_size = payload_size - incrementer #revert
-                payload_end = payload_start + payload_size
-                fine_tune_lock = 1
-            print("Timeout")
+                adaptive_size_mode = 3
+            payload_end = payload_start + payload_size
+            print("[TIMEOUT] RTT:",RTT,"Transmitted:",transmitted_payload,"/",payload_length,"Elapsed Time:",elapsed_time)
             
         
         n = n+1
@@ -124,18 +130,18 @@ def SendPayload(args,socket,TID,payload):
 def main():
     cmd_args = GetArgs()
     print("Fetching payload file...") 
-    #FetchNewPayload(cmd_args)
+    FetchNewPayload(cmd_args)
+
+    print("Reading payload file...")
+    payload = GetFileContents(cmd_args)
+    if payload == -1:  #Error Occured
+        return -1
 
     print("Initializing socket...") 
     udp_socket = InitSocket(cmd_args)
 
     print("Sending intent message...")                            
     TID = SendIntentMessage(udp_socket,cmd_args) 
-
-    print("Reading payload file...")
-    payload = GetFileContents(cmd_args)
-    if payload == -1:  #Error Occured
-        return -1
 
     print("Sending payload...")
     SendPayload(cmd_args,udp_socket,TID,payload)
