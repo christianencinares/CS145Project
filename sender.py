@@ -72,7 +72,7 @@ def SendPayload(args,socket,TID,payload):
     multiplier = 1
     n = 0
     start_elapsed_time = time.time()
-    while (transmitted_payload != payload_length) or (elapsed_time > 130):
+    while (transmitted_payload != payload_length) or (time.time() - start_elapsed_time > 130):
         data_packet = ("ID{}SN{:07d}TXN{:07d}LAST{}{}".format(args.uniqueid,int(sequence_number),int(TID),Z,payload[payload_start:payload_end])).encode()
         print("------------------------------------------------------")
         print("Attempting to send: ",data_packet)
