@@ -32,6 +32,7 @@ def SendIntentMessage(socket,args):
         TID = TID.decode()                        #Decode the response
         if TID == 'Existing':
             print("ERROR: Transaction ID currently in use. Reattempting...")
+            continue
         print("TID:",TID)                          #Print the transcation ID from the receiver
         return TID                                
 
@@ -69,7 +70,7 @@ def SendPayload(args,socket,TID,payload):
     adaptive_size_mode = 0
     Ave_RTT = 10
     incrementer = 0
-    multiplier = 1
+    multiplier = 2
     n = 0
     start_elapsed_time = time.time()
     while (transmitted_payload != payload_length) or (time.time() - start_elapsed_time > 130):
