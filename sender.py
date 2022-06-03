@@ -70,6 +70,7 @@ def SendPayload(args,socket,TID,payload):
     payload_size = 1
     adaptive_size_mode = 0
     Ave_RTT = 10
+    RTT = 0
     incrementer = 0
     multiplier = 2
     n = 0
@@ -79,9 +80,9 @@ def SendPayload(args,socket,TID,payload):
         print("------------------------------------------------------")
         print("Attempting to send: ",data_packet)
         print("SIZE: ",payload_size,"SN:",sequence_number,"Adapative Size Mode:",adaptive_size_mode)
-        start = time.time()
         socket.settimeout(Ave_RTT)
         try:
+            start = time.time()
             socket.sendto(data_packet, (args.address, args.receiverport))
             receiver_ack, server = socket.recvfrom(100)
             end = time.time()
@@ -106,10 +107,12 @@ def SendPayload(args,socket,TID,payload):
                     incrementer = incrementer + 1
                     payload_size = payload_size + incrementer                   
                 #else Optimal payload size attained, no payload size change
-                
+            
                 payload_start = payload_end
                 payload_end = payload_end + payload_size
         except:
+            elapsed_time = time.time() - start_elapsed_time
+            end = time.time()
             payload_start = payload_end - payload_size
             if adaptive_size_mode == 0:   #Incrementing Multiplier Mode
                 payload_size = payload_size//multiplier
@@ -118,14 +121,14 @@ def SendPayload(args,socket,TID,payload):
                 payload_size = payload_size//2
                 adaptive_size_mode = 2 
             elif adaptive_size_mode == 2: #Incremental Mode
-                payload_size = payload_size - incrementer #revert
+                payload_size = payload_size - incrementer 
                 adaptive_size_mode = 3
             payload_end = payload_start + payload_size
-            print("[TIMEOUT] RTT:",RTT,"Transmitted:",transmitted_payload,"/",payload_length,"Elapsed Time:",elapsed_time)
-            
-        
-        n = n+1
+            print("[TIMEOUT] RTT:",end-start,"Transmitted:",transmitted_payload,"/",payload_length,"Elapsed Time:",elapsed_time)
+         
+        n = n+1          
         Ave_RTT = (Ave_RTT*n + RTT)/(n+1)
+        
         print("Average RTT is: ",Ave_RTT)
         
 
