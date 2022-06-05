@@ -1,10 +1,9 @@
-from cmath import exp
 import socket
 import time
 import os
 import argparse
 import requests
-
+import math
 #DEFAULT VALUES
 FILEPATH = "ecd04286.txt"
 ADDRESS = "10.0.7.141"
@@ -71,23 +70,21 @@ def SendPayload(args,socket,TID,payload):
     adaptive_size_mode = 0
     Ave_RTT = 10
     RTT = 0
-    incrementer = 0
-    multiplier = 2
-    n = 0
+    incrementer = 1
     start_elapsed_time = time.time()
-    while (transmitted_payload != payload_length) and (time.time() - start_elapsed_time < 130):
+    while (transmitted_payload != payload_length) and (time.time() - start_elapsed_time < 125):
         data_packet = ("ID{}SN{:07d}TXN{:07d}LAST{}{}".format(args.uniqueid,int(sequence_number),int(TID),Z,payload[payload_start:payload_end])).encode()
         print("------------------------------------------------------")
         print("Attempting to send: ",data_packet)
         print("SIZE: ",payload_size,"SN:",sequence_number,"Adapative Size Mode:",adaptive_size_mode)
-        socket.settimeout(Ave_RTT)
+        socket.settimeout(Ave_RTT+0.5)
         try:
             start = time.time()
             socket.sendto(data_packet, (args.address, args.receiverport))
             receiver_ack, server = socket.recvfrom(100)
             end = time.time()
             RTT = end - start
-            sequence_number = sequence_number+1
+
             transmitted_payload = transmitted_payload + payload_size
             elapsed_time = time.time() - start_elapsed_time
             print("[SUCCESS] ACK:",receiver_ack,"RTT:",RTT,"Transmitted:",transmitted_payload,"/",payload_length,"Elapsed Time:",elapsed_time)
@@ -98,44 +95,51 @@ def SendPayload(args,socket,TID,payload):
                 payload_end = payload_length
                 Z = 1
             else:
-                if adaptive_size_mode == 0:   #Incrementing Multiplier Mode
-                    multiplier = multiplier + 1
-                    payload_size = payload_size * multiplier
-                elif adaptive_size_mode == 1: #Base Multiplier Mode
-                    payload_size = payload_size * 2    
-                elif adaptive_size_mode == 2: #Incremental Mode
-                    incrementer = incrementer + 1
-                    payload_size = payload_size + incrementer                   
+                if adaptive_size_mode == 0:   
+                    print(sequence_number)
+                    if sequence_number == 0:    #Initial guess
+                        numofpackets = math.ceil(120/RTT) 
+                        payload_size = int(payload_length//numofpackets)
+                    else:
+                        adaptive_size_mode = 1 #Try increasing payload size
+                elif adaptive_size_mode == 1: #Increment
+                    incrementer = incrementer * 3
+                    payload_size = payload_size + incrementer 
+                elif adaptive_size_mode == 2:
+                    payload_size = payload_size + 1                   
                 #else Optimal payload size attained, no payload size change
             
                 payload_start = payload_end
                 payload_end = payload_end + payload_size
+            sequence_number = sequence_number+1
         except:
             elapsed_time = time.time() - start_elapsed_time
             end = time.time()
+            
             payload_start = payload_end - payload_size
-            if adaptive_size_mode == 0:   #Incrementing Multiplier Mode
-                payload_size = payload_size//multiplier
-                adaptive_size_mode = 1   
-            elif adaptive_size_mode == 1: #Base Multiplier Mode
-                payload_size = payload_size//2
-                adaptive_size_mode = 2 
-            elif adaptive_size_mode == 2: #Incremental Mode
+            if adaptive_size_mode == 0: #bad initial guess
+                payload_size = payload_size * 2/3
+                adaptive_size_mode = 1
+            elif adaptive_size_mode == 1: #Switch to decrement mode
                 payload_size = payload_size - incrementer 
-                adaptive_size_mode = 3
+                adaptive_size_mode = 2   #optimal payload size attained
+            elif adaptive_size_mode == 2: #Switch to decrement mode
+                payload_size = payload_size - 1 
+                adaptive_size_mode = 3   #optimal payload size attained    
             payload_end = payload_start + payload_size
             print("[TIMEOUT] RTT:",end-start,"Transmitted:",transmitted_payload,"/",payload_length,"Elapsed Time:",elapsed_time)
-         
-        n = n+1          
-        Ave_RTT = (Ave_RTT*n + RTT)/(n+1)
         
+        if sequence_number == 1:
+            Ave_RTT = RTT + 0.5
+        else:
+            Ave_RTT = (Ave_RTT*sequence_number + RTT)/(sequence_number+1)
         print("Average RTT is: ",Ave_RTT)
         
 
 def main():
     cmd_args = GetArgs()
     print("Fetching payload file...") 
-    FetchNewPayload(cmd_args)
+    #FetchNewPayload(cmd_args)
 
     print("Reading payload file...")
     payload = GetFileContents(cmd_args)
