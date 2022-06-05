@@ -96,9 +96,8 @@ def SendPayload(args,socket,TID,payload):
                 Z = 1
             else:
                 if adaptive_size_mode == 0:   
-                    print(sequence_number)
                     if sequence_number == 0:    #Initial guess
-                        numofpackets = math.ceil(120/RTT) 
+                        numofpackets = math.ceil(95/RTT) 
                         payload_size = int(payload_length//numofpackets)
                     else:
                         adaptive_size_mode = 1 #Try increasing payload size
@@ -139,7 +138,7 @@ def SendPayload(args,socket,TID,payload):
 def main():
     cmd_args = GetArgs()
     print("Fetching payload file...") 
-    #FetchNewPayload(cmd_args)
+    FetchNewPayload(cmd_args)
 
     print("Reading payload file...")
     payload = GetFileContents(cmd_args)
