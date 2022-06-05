@@ -31,7 +31,7 @@ def SendIntentMessage(socket,args):
         TID, server = socket.recvfrom(8)                            #Receive the response containing the TID from the receiver. Buffer size 8 bytes.
         TID = TID.decode()                                          #Decode the response
         if TID == 'Existing':                                       #If the TID is 'Existing', then someone else is using TID. Try again after some time.
-            time.sleep(1)
+            time.sleep(2)
             print("ERROR: Transaction ID currently in use. Reattempting...")
             continue                                                #Go back to beginning of loop
         print("TID:",TID)                                       
@@ -90,11 +90,6 @@ def SendPayload(args,socket,TID,payload):
             receiver_ack, server = socket.recvfrom(100)                     #Receive ACK from receiver
             end = time.time()              #End timer for RTT
             RTT = end - start              #Calculate RTT for this segment(Successful transmission)
-            
-            if sequence_number == 0:       #If this is the first packet, then set the average RTT to the RTT of this segment
-                Ave_RTT = RTT 
-            else:                          #If this is not the first packet, then calculate the average RTT
-                Ave_RTT = (Ave_RTT*sequence_number + RTT)/(sequence_number+1) 
 
             transmitted_payload = transmitted_payload + payload_size #Update number of characters transmitted
             elapsed_time = time.time() - start_elapsed_time          #Check elapsed time for this segment
@@ -112,6 +107,7 @@ def SendPayload(args,socket,TID,payload):
                         payload_size = int(payload_length//numofpackets) #Calculate the baseline payload size
                     else:
                         incrementer = incrementer * 3 
+                        payload_size = payload_size + incrementer #Increment current payload size
                         adaptive_size_mode = 1 #Initial guess size didn't time out. Try increasing payload size
                 elif adaptive_size_mode == 1:  #Exponential payload size increase mode
                     incrementer = incrementer * 3 #Increase the payload size by a factor of 3
@@ -125,14 +121,16 @@ def SendPayload(args,socket,TID,payload):
                 payload_end = payload_end + payload_size
                 print(payload_start,payload_end)
             sequence_number = sequence_number+1 #Increment sequence number for next segment
+            
         #Packet timed out
         except:
             elapsed_time = time.time() - start_elapsed_time #Check elapsed time for this segment
             end = time.time()           #End time for Timed out RTT calculation
             
             payload_start = payload_end - payload_size #Revert to previous successful segment start index
-            if adaptive_size_mode == 0: #Bad initial payload size guess
-                payload_size = payload_size * 2/3
+            if adaptive_size_mode == 0: #Bad initial payload size guess or bad intial timeout RTT
+                Ave_RTT = Ave_RTT + 2 #Increase the average RTT by 2s
+                payload_size = math.ceil(payload_size * 2/3)
                 adaptive_size_mode = 1    #Switch to exponential increase mode
             elif adaptive_size_mode == 1: #Exponential increase mode reached timeout
                 payload_size = payload_size - incrementer #Revert increase
@@ -143,7 +141,10 @@ def SendPayload(args,socket,TID,payload):
             payload_end = payload_start + payload_size #Change end index according to new payload size
             print("[TIMEOUT] RTT:",end-start,"Transmitted:",transmitted_payload,"/",payload_length,"Elapsed Time:",elapsed_time)
         
-        
+        if sequence_number == 0:       #If this is the first packet, then set the average RTT to the RTT of this segment
+            Ave_RTT = RTT 
+        else:                          #If this is not the first packet, then calculate the average RTT
+            Ave_RTT = (Ave_RTT*sequence_number + RTT)/(sequence_number+1) 
         print("Average RTT is: ",Ave_RTT)
         print("------------------------------------------------------")
         
