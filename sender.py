@@ -97,12 +97,14 @@ def SendPayload(args,socket,TID,payload):
         print("SIZE: ",payload_size,"| SN:",sequence_number,"| Adapative Size Mode:",adaptive_size_mode,'| Timeout Value:',Ave_RTT+0.5)
         socket.settimeout(Ave_RTT+0.5)     #Set the socket timeout (0.5 is added to avoid timing out on the actual RTT)
         start = time.time()                                             #Start timer for RTT
+        print("Starting timer: ",start)
         #Try sending packet
         try:
             socket.sendto(data_packet, (args.address, args.receiverport))   #Send packet to receiver
             receiver_ack, server = socket.recvfrom(100)                     #Receive ACK from receiver
             receiver_ack = receiver_ack.decode()                            #Decode the ACK
             end = time.time()                                               #End timer for RTT
+            print("Ending timer: ",end)
             RTT = end - start                                               #Calculate RTT for this segment(Successful transmission)
 
             transmitted_payload = transmitted_payload + payload_size #Update number of characters transmitted
