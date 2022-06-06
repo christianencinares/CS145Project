@@ -97,25 +97,19 @@ def SendPayload(args,socket,TID,payload):
             data_packet = ("ID{}SN{:07d}TXN{:07d}LAST{}{}".format(args.uniqueid,int(sequence_number),int(TID),Z,payload[payload_start:payload_end])).encode()
             print("Attempting to send: ",data_packet)
             print("SIZE: ",payload_size,"| SN:",sequence_number,"| Adapative Size Mode:",adaptive_size_mode,'| Timeout Value:',Ave_RTT+1)
-            socket.settimeout(Ave_RTT+1)     #Set the socket timeout (1 is added to avoid timing out on the actual RTT)
+            socket.settimeout(Ave_RTT+1.5)   #Set the socket timeout (1.5 is added to avoid timing out on the actual RTT and compensate for server RTT unpredictability)
             start = time.time()              #Start timer for RTT
             socket.sendto(data_packet, (args.address, args.receiverport))   #Send packet to receiver
             receiver_ack, server = socket.recvfrom(100)                     #Receive ACK from receiver
             receiver_ack = receiver_ack.decode()                            #Decode the ACK
             end = time.time()                                               #End timer for RTT
+            if end-start < 1:
+                print("OH NO! RTT is less than 1 second!")
+            RTT = end - start                                               #Calculate RTT for this segment(Successful transmission)
 
-            if end-start > 1:                                               #Do not count RTT if it is less than 1 second
-                RTT = end - start                                           #Calculate RTT for this segment(Successful transmission)
-                if sequence_number == 0:       #If this is the first packet, then set the average RTT to the RTT of this segment for the next segment's timeout
-                    Ave_RTT = RTT 
-                else:                          #If this is not the first packet, then calculate the average RTT
-                    Ave_RTT = (Ave_RTT*sequence_number + RTT)/(sequence_number+1)
-                print("Average RTT: ",Ave_RTT)
-                
             transmitted_payload = transmitted_payload + payload_size #Update number of characters transmitted
             elapsed_time = time.time() - start_elapsed_time          #Check elapsed time for this segment
             print("[SUCCESS] ACK:",receiver_ack,"| RTT:",RTT,"| Transmitted:",transmitted_payload,"/",payload_length,"| Elapsed Time:",elapsed_time)
-            print("------------------------------------------------------")
             
             #Prepare Variables for next segment
             if payload_size >  payload_length - payload_end:    #Check if current payload size exceeds the remaining payload to send
@@ -144,6 +138,12 @@ def SendPayload(args,socket,TID,payload):
                 payload_start = payload_end 
                 payload_end = payload_end + payload_size
 
+            if sequence_number == 0:       #If this is the first packet, then set the average RTT to the RTT of this segment for the next segment's timeout
+                Ave_RTT = RTT 
+            else:                          #If this is not the first packet, then calculate the average RTT
+                Ave_RTT = (Ave_RTT*sequence_number + RTT)/(sequence_number+1)
+                print("Average RTT: ",Ave_RTT)
+                print("------------------------------------------------------")
             sequence_number = sequence_number+1 #Increment sequence number for next segment
         except:
             elapsed_time = time.time() - start_elapsed_time       #Check elapsed time for this segment
