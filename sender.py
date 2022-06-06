@@ -104,6 +104,7 @@ def SendPayload(args,socket,TID,payload):
             receiver_ack, server = socket.recvfrom(100)                     #Receive ACK from receiver
             receiver_ack = receiver_ack.decode()                            #Decode the ACK
             end = time.time()                                               #End timer for RTT
+            print("RTT will be calculated")
             RTT = end - start                                               #Calculate RTT for this segment(Successful transmission)
     
             #Out of order packets are ignored by receiver = no ACK. Will timeout either way
@@ -115,8 +116,7 @@ def SendPayload(args,socket,TID,payload):
             elapsed_time = time.time() - start_elapsed_time          #Check elapsed time for this segment
             print("[SUCCESS] ACK:",receiver_ack,"| RTT:",RTT,"| Transmitted:",transmitted_payload,"/",payload_length,"| Elapsed Time:",elapsed_time)
             
-            #-------Prepare Variables for next segment-------
-
+            #Prepare Variables for next segment
             if payload_size >  payload_length - payload_end:    #Check if current payload size exceeds the remaining payload to send
                 payload_size = payload_length - payload_end     #Set payload size to the remaining payload's length
                 payload_start = payload_end                     #Set the payload start index to the end of the last segment
@@ -181,6 +181,7 @@ def SendPayload(args,socket,TID,payload):
 
             payload_end = payload_start + payload_size            #Change end index according to new payload size
             print("[TIMEOUT] Transmitted:",transmitted_payload,"/",payload_length,"| Elapsed Time:",elapsed_time)
+            print("------------------------------------------------------")
         
     if transmitted_payload == payload_length:   #Check if all payload has been transmitted
         print("TRANSMISSION SUCCESSFUL")
