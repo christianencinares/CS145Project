@@ -152,7 +152,6 @@ def SendPayload(args,socket,TID,payload):
         except:
             elapsed_time = time.time() - start_elapsed_time       #Check elapsed time for this segment
             payload_start = payload_end - payload_size            #Revert to previous successful segment start index
-            end = time.time()                                     #End timer for RTT
             #Timeout RTTs are not counted in Ave_RTT since they will increase the timeout value
 
             #Adapative payload size error handlers
@@ -174,7 +173,7 @@ def SendPayload(args,socket,TID,payload):
                 Ave_RTT = Ave_RTT + 1 #Increase timeout 
 
             payload_end = payload_start + payload_size            #Change end index according to new payload size
-            print("[TIMEOUT] RTT",end-start,"| Transmitted:",transmitted_payload,"/",payload_length,"| Elapsed Time:",elapsed_time)
+            print("[TIMEOUT] Transmitted:",transmitted_payload,"/",payload_length,"| Elapsed Time:",elapsed_time)
         
         if sequence_number == 1:       #If this is the first packet, then set the average RTT to the RTT of this segment for the next segment's timeout
             Ave_RTT = RTT 
