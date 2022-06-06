@@ -163,6 +163,7 @@ def SendPayload(args,socket,TID,payload):
         if sequence_number == 1:       #If this is the first packet, then set the average RTT to the RTT of this segment for the next segment's timeout
             Ave_RTT = RTT 
         else:                          #If this is not the first packet, then calculate the average RTT
+            print("RTT to be used in formula:",RTT)
             Ave_RTT = (Ave_RTT*sequence_number + RTT)/(sequence_number+1)
         print("Average RTT: ",Ave_RTT)
         print("------------------------------------------------------")
