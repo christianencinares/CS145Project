@@ -179,7 +179,7 @@ def main():
     cmd_args = GetArgs()                        #Get command line arguments 
 
     print("Fetching payload file...") 
-    FetchNewPayload(cmd_args)                   #Fetch new payload file
+    #FetchNewPayload(cmd_args)                   #Fetch new payload file
 
     print("Reading payload file...")
     payload = GetFileContents(cmd_args)         #Read payload file
