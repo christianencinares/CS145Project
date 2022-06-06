@@ -145,7 +145,14 @@ def SendPayload(args,socket,TID,payload):
                 #Adjust indices to next payload segment
                 payload_start = payload_end 
                 payload_end = payload_end + payload_size
-                
+
+            if sequence_number == 0:       #If this is the first packet, then set the average RTT to the RTT of this segment for the next segment's timeout
+                Ave_RTT = RTT 
+            else:                          #If this is not the first packet, then calculate the average RTT
+                Ave_RTT = (Ave_RTT*sequence_number + RTT)/(sequence_number+1)
+            print("Average RTT: ",Ave_RTT)
+            print("------------------------------------------------------")
+    
             sequence_number = sequence_number+1 #Increment sequence number for next segment
             
         #Packet timedout
@@ -175,13 +182,6 @@ def SendPayload(args,socket,TID,payload):
             payload_end = payload_start + payload_size            #Change end index according to new payload size
             print("[TIMEOUT] Transmitted:",transmitted_payload,"/",payload_length,"| Elapsed Time:",elapsed_time)
         
-        if sequence_number == 1:       #If this is the first packet, then set the average RTT to the RTT of this segment for the next segment's timeout
-            Ave_RTT = RTT 
-        else:                          #If this is not the first packet, then calculate the average RTT
-            Ave_RTT = (Ave_RTT*sequence_number + RTT)/(sequence_number+1)
-        print("Average RTT: ",Ave_RTT)
-        print("------------------------------------------------------")
-
     if transmitted_payload == payload_length:   #Check if all payload has been transmitted
         print("TRANSMISSION SUCCESSFUL")
     else:                                       #If not all packets sent, then transmission failed
