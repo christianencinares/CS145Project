@@ -103,13 +103,7 @@ def SendPayload(args,socket,TID,payload):
             receiver_ack, server = socket.recvfrom(100)                     #Receive ACK from receiver
             receiver_ack = receiver_ack.decode()                            #Decode the ACK
             end = time.time()                                               #End timer for RTT
-            print("RTT will be calculated")
             RTT = end - start                                               #Calculate RTT for this segment(Successful transmission)
-    
-            #Out of order packets are ignored by receiver = no ACK. Will timeout either way
-            #if sequence_number > int(receiver_ack[3:10]):      #Retransmit previous segment if sequence number is mismatched
-                #print(sequence_number,"!=",receiver_ack[3:10])
-                #raise Exception("Sequence number mismatch")
 
             transmitted_payload = transmitted_payload + payload_size #Update number of characters transmitted
             elapsed_time = time.time() - start_elapsed_time          #Check elapsed time for this segment
@@ -123,14 +117,11 @@ def SendPayload(args,socket,TID,payload):
                 Z = 1                                           #Denotes next segment to be sent is the last segment
 
             else:
-                #Initial guessing mode
-                if adaptive_size_mode == 0: 
-                    #Compute initial guess payload size                                       
-                    if sequence_number == 0 and overestimated == 0:                
+                if adaptive_size_mode == 0:                                        #Initial guessing mode
+                    if sequence_number == 0 and overestimated == 0:                #Compute initial guess payload size 
                         numofpackets = math.ceil(80/RTT)                           #Calculate the number of packets that can fit under target time using a sample RTT
                         payload_size = int(math.ceil(payload_length/numofpackets)) #Calculate the baseline payload size
-                    #Initial guess size didn't time out. Try increasing payload size
-                    else:                                         
+                    else:                                                          #Initial guess size didn't time out. Try increasing payload size
                         incrementer = incrementer * 3             
                         payload_size = payload_size + incrementer #Increment current payload size
                         adaptive_size_mode = 1                    #Change to exponential increase mode
@@ -146,8 +137,6 @@ def SendPayload(args,socket,TID,payload):
                 payload_end = payload_end + payload_size
     
             sequence_number = sequence_number+1 #Increment sequence number for next segment
-            
-        #Packet timedout
         except:
             elapsed_time = time.time() - start_elapsed_time       #Check elapsed time for this segment
             payload_start = payload_end - payload_size            #Revert to previous successful segment start index
@@ -159,16 +148,13 @@ def SendPayload(args,socket,TID,payload):
                 Ave_RTT = Ave_RTT + 0.5                           #Increase the average RTT by 0.5s
                 payload_size = math.ceil(payload_size * 1/2)      #Halve the initial guess payload size
                 overestimated = 1                                 #Set the initial guess overestimated flag to 1
-            #Exponential increase mode reached timeout
-            elif adaptive_size_mode == 1: 
+            elif adaptive_size_mode == 1:                         #Exponential increase mode reached timeout
                 payload_size = payload_size - incrementer         #Revert increase
                 adaptive_size_mode = 2                            #Switch to incremental increase mode     
-            #Incremental increase mode reached timeout              
-            elif adaptive_size_mode == 2: 
+            elif adaptive_size_mode == 2:                         #Incremental increase mode reached timeout
                 payload_size = payload_size - 1                   #Revert increase
                 adaptive_size_mode = 3                            #Switch to optimal payload size mode
-            #Optimal size mode reached timeout
-            else:
+            else:                                                 #Incremental increase mode reached timeout
                 Ave_RTT = Ave_RTT + 1 #Increase timeout 
 
             payload_end = payload_start + payload_size            #Change end index according to new payload size
@@ -192,7 +178,7 @@ def main():
     cmd_args = GetArgs()                        #Get command line arguments 
 
     print("Fetching payload file...") 
-    #FetchNewPayload(cmd_args)                   #Fetch new payload file
+    FetchNewPayload(cmd_args)                   #Fetch new payload file
 
     print("Reading payload file...")
     payload = GetFileContents(cmd_args)         #Read payload file
