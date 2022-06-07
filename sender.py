@@ -69,7 +69,7 @@ def FetchNewPayload(args):
     response = requests.get(url)                                                #Send GET request to server
     open(args.filepath, 'wb').write(response.content)                           #Automatically creates file if DNE
 
-#Sends the payload to the receiver through over packets  
+#Sends the payload to the receiver over multiple packets  
 def SendPayload(args,socket,TID,payload):
     #/=====================Variable Initializations=====================/
     payload_start = 0               #Starting index for current payload segment 
@@ -89,19 +89,20 @@ def SendPayload(args,socket,TID,payload):
     
     #/=====================Sending and Parameter Estimation=====================/
     #While loop continuously sends packets to receiver until overtime or when all the payload has been transmitted
-    print("------------------------------------------------------")
+    
     while (transmitted_payload != payload_length) and (time.time() - start_elapsed_time < 125): 
         #Try sending packet
         try:
             #Compose packet to be sent to receiver
+            print("------------------------------------------------------")
             data_packet = ("ID{}SN{:07d}TXN{:07d}LAST{}{}".format(args.uniqueid,int(sequence_number),int(TID),Z,payload[payload_start:payload_end])).encode()
             print("Attempting to send: ",data_packet)
             print("SIZE: ",payload_size,"| SN:",sequence_number,"| Adapative Size Mode:",adaptive_size_mode,'| Timeout Value:',Ave_RTT+1)
 
-            socket.settimeout(Ave_RTT+1.5)                                  #Set the socket timeout (1.5 is added to avoid timing out on the actual RTT and compensate for server RTT unpredictability)
+            socket.settimeout(Ave_RTT+1.5)                                  #Set the socket timeout (compensate for server RTT unpredictability and avoid actual RTT timeout)
             start = time.time()                                             #Start timer for RTT
             socket.sendto(data_packet, (args.address, args.receiverport))   #Send packet to receiver
-            receiver_ack, server = socket.recvfrom(100)                     #Receive ACK from receiver
+            receiver_ack, server = socket.recvfrom(8)                       #Receive ACK from receiver
             receiver_ack = receiver_ack.decode()                            #Decode the ACK
             end = time.time()                                               #End timer for RTT
             RTT = end - start                                               #Calculate RTT for this segment
@@ -116,7 +117,6 @@ def SendPayload(args,socket,TID,payload):
                 payload_start = payload_end                     #Set the payload start index to the end of the last segment
                 payload_end = payload_length                    #Set the end index to the end of the payload
                 Z = 1                                           #Denotes next segment to be sent is the last segment
-
             else:
                 if adaptive_size_mode == 0:                                        #Initial guessing mode
                     if sequence_number == 0 and overestimated == 0:                #Compute initial guess payload size 
@@ -142,7 +142,6 @@ def SendPayload(args,socket,TID,payload):
             else:                          #If this is not the first packet, then calculate the average RTT
                 Ave_RTT = (Ave_RTT*sequence_number + RTT)/(sequence_number+1)
                 print("Average RTT: ",Ave_RTT)
-                print("------------------------------------------------------")
             sequence_number = sequence_number+1 #Increment sequence number for next segment
         except:
             elapsed_time = time.time() - start_elapsed_time       #Check elapsed time for this segment
@@ -165,9 +164,7 @@ def SendPayload(args,socket,TID,payload):
 
             payload_end = payload_start + payload_size            #Change end index according to new payload size
             print("[TIMEOUT] Transmitted:",transmitted_payload,"/",payload_length,"| Elapsed Time:",elapsed_time)
-            print("------------------------------------------------------")
-        
-        
+          
     if transmitted_payload == payload_length:   #Check if all payload has been transmitted
         print("TRANSMISSION SUCCESSFUL")
     else:                                       #If not all packets sent, then transmission failed
