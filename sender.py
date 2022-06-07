@@ -33,7 +33,7 @@ def SendIntentMessage(socket,args):
         while True: 
             message = ("ID{}".format(args.uniqueid)).encode()           #Encode the intent message: ID<uniqueid>
             socket.sendto(message, (args.address, args.receiverport))   #Send the intent message using receiver's IP and port
-            TID, server = socket.recvfrom(8)                            #Receive the response containing the TID from the receiver. Buffer size 8 bytes.
+            TID, server = socket.recvfrom(100)                            #Receive the response containing the TID from the receiver. Buffer size 8 bytes.
             TID = TID.decode()                                          #Decode the response
             if TID == 'Existing':                                       #If the TID is 'Existing', then someone else is using TID. Try again after some time.
                 time.sleep(2)                                           #Wait for 2 seconds
@@ -97,17 +97,16 @@ def SendPayload(args,socket,TID,payload):
             data_packet = ("ID{}SN{:07d}TXN{:07d}LAST{}{}".format(args.uniqueid,int(sequence_number),int(TID),Z,payload[payload_start:payload_end])).encode()
             print("Attempting to send: ",data_packet)
             print("SIZE: ",payload_size,"| SN:",sequence_number,"| Adapative Size Mode:",adaptive_size_mode,'| Timeout Value:',Ave_RTT+1)
-            socket.settimeout(Ave_RTT+1.5)   #Set the socket timeout (1.5 is added to avoid timing out on the actual RTT and compensate for server RTT unpredictability)
-            start = time.time()              #Start timer for RTT
+
+            socket.settimeout(Ave_RTT+1.5)                                  #Set the socket timeout (1.5 is added to avoid timing out on the actual RTT and compensate for server RTT unpredictability)
+            start = time.time()                                             #Start timer for RTT
             socket.sendto(data_packet, (args.address, args.receiverport))   #Send packet to receiver
             receiver_ack, server = socket.recvfrom(100)                     #Receive ACK from receiver
             receiver_ack = receiver_ack.decode()                            #Decode the ACK
             end = time.time()                                               #End timer for RTT
-            if end-start < 1:
-                print("OH NO! RTT is less than 1 second!")
-            RTT = end - start                                               #Calculate RTT for this segment(Successful transmission)
+            RTT = end - start                                               #Calculate RTT for this segment
 
-            transmitted_payload = transmitted_payload + payload_size #Update number of characters transmitted
+            transmitted_payload = transmitted_payload + payload_size #Update number of characters successfully transmitted
             elapsed_time = time.time() - start_elapsed_time          #Check elapsed time for this segment
             print("[SUCCESS] ACK:",receiver_ack,"| RTT:",RTT,"| Transmitted:",transmitted_payload,"/",payload_length,"| Elapsed Time:",elapsed_time)
             
@@ -121,8 +120,8 @@ def SendPayload(args,socket,TID,payload):
             else:
                 if adaptive_size_mode == 0:                                        #Initial guessing mode
                     if sequence_number == 0 and overestimated == 0:                #Compute initial guess payload size 
-                        numofpackets = math.ceil(80/RTT)                           #Calculate the number of packets that can fit under target time using a sample RTT
-                        payload_size = int(math.ceil(payload_length/numofpackets)) #Calculate the baseline payload size
+                        numofpackets = math.ceil(75/RTT)                           #Calculate the number of packets that can fit under target time using a sample RTT
+                        payload_size = int(math.ceil(payload_length/numofpackets)) #Calculate the payload size needed to send numofpackets covering entire payload length
                     else:                                                          #Initial guess size didn't time out. Try increasing payload size
                         incrementer = incrementer * 3             
                         payload_size = payload_size + incrementer #Increment current payload size
@@ -151,11 +150,10 @@ def SendPayload(args,socket,TID,payload):
             #Timeout RTTs are not counted in Ave_RTT since they will increase the timeout value
 
             #Adapative payload size error handlers
-            #Bad initial guess for payload size  or bad intial timeout RTT
-            if adaptive_size_mode == 0: 
+            if adaptive_size_mode == 0:                           #Bad initial guess for payload size  or bad intial timeout RTT
                 Ave_RTT = Ave_RTT + 0.5                           #Increase the average RTT by 0.5s
                 payload_size = math.ceil(payload_size * 1/2)      #Halve the initial guess payload size
-                overestimated = 1                                 #Set the initial guess overestimated flag to 1
+                overestimated = 1                                 #Set the initial guess overestimated flag to 1, to avoid infinite loop
             elif adaptive_size_mode == 1:                         #Exponential increase mode reached timeout
                 payload_size = payload_size - incrementer         #Revert increase
                 adaptive_size_mode = 2                            #Switch to incremental increase mode     
