@@ -33,7 +33,7 @@ def SendIntentMessage(socket,args):
         while True: 
             message = ("ID{}".format(args.uniqueid)).encode()           #Encode the intent message: ID<uniqueid>
             socket.sendto(message, (args.address, args.receiverport))   #Send the intent message using receiver's IP and port
-            TID, server = socket.recvfrom(100)                            #Receive the response containing the TID from the receiver. Buffer size 8 bytes.
+            TID, server = socket.recvfrom(8)                            #Receive the response containing the TID from the receiver. Buffer size 8 bytes.
             TID = TID.decode()                                          #Decode the response
             if TID == 'Existing':                                       #If the TID is 'Existing', then someone else is using TID. Try again after some time.
                 time.sleep(2)                                           #Wait for 2 seconds
@@ -170,7 +170,6 @@ def SendPayload(args,socket,TID,payload):
     else:                                       #If not all packets sent, then transmission failed
         print("TRANSMISSION FAILED with ",transmitted_payload,"/",payload_length,"transmitted")
 
-        
 #Main function. Calls other helper functions.
 def main():
     cmd_args = GetArgs()                        #Get command line arguments 
